@@ -68,6 +68,26 @@ textarea{min-height:80px;resize:vertical}
       <small>O que você alterar aqui aparece no cardápio do cliente automaticamente.</small>
     </div>
 
+
+    <div class="card">
+      <h2>Configuração do Pix</h2>
+      <div class="tiny">Altere aqui o nome, tipo e chave Pix que aparecem no cardápio do cliente.</div>
+      <div class="row" style="margin-top:12px">
+        <input id="pix-name" type="text" placeholder="Nome que aparece no Pix. Ex.: JoyFormiga Doceria">
+        <select id="pix-type">
+          <option value="CNPJ">CNPJ</option>
+          <option value="CPF">CPF</option>
+          <option value="Telefone">Telefone</option>
+          <option value="E-mail">E-mail</option>
+          <option value="Aleatória">Aleatória</option>
+        </select>
+      </div>
+      <input id="pix-key" type="text" placeholder="Chave Pix">
+      <button class="green" onclick="savePixConfig()">Salvar Pix</button>
+      <div id="pix-msg" class="tiny" style="margin-top:10px"></div>
+    </div>
+
+
     
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
@@ -262,7 +282,8 @@ let state = {
   hiddenFreeToppings: [],
   hiddenPaidToppings: [],
   customProducts: {},
-  coupons: {}
+  coupons: {},
+  pix: { name: 'JoyFormiga Doceria', type: 'CNPJ', key: '45.476.940/0001-90' }
 };
 let editingCouponId = null;
 let editingProductId = null;
@@ -324,7 +345,46 @@ function renderCustomProducts() {
 }
 
 
+
+function loadPixForm() {
+  const pix = state.pix || {};
+  const nameEl = document.getElementById('pix-name');
+  const typeEl = document.getElementById('pix-type');
+  const keyEl = document.getElementById('pix-key');
+  if (!nameEl || !typeEl || !keyEl) return;
+  nameEl.value = pix.name || 'JoyFormiga Doceria';
+  typeEl.value = pix.type || 'CNPJ';
+  keyEl.value = pix.key || '45.476.940/0001-90';
+}
+
+function savePixConfig() {
+  const name = document.getElementById('pix-name').value.trim();
+  const type = document.getElementById('pix-type').value;
+  const key = document.getElementById('pix-key').value.trim();
+  const msg = document.getElementById('pix-msg');
+
+  if (!name) {
+    msg.innerHTML = '<span style="color:#c62828;font-weight:700">Digite o nome do Pix.</span>';
+    return;
+  }
+  if (!key) {
+    msg.innerHTML = '<span style="color:#c62828;font-weight:700">Digite a chave Pix.</span>';
+    return;
+  }
+
+  msg.textContent = 'Salvando Pix...';
+  menuRef.child('pix').set({ name, type, key })
+    .then(() => {
+      msg.innerHTML = '<span class="ok">Pix salvo com sucesso.</span>';
+    })
+    .catch(err => {
+      msg.innerHTML = '<span style="color:#c62828;font-weight:700">Erro ao salvar Pix: ' + escapeHtml(err.message) + '</span>';
+    });
+}
+
+
 function renderAll() {
+  loadPixForm();
   renderToggleList('free-box', freeToppings, 'hiddenFreeToppings');
   renderToggleList('paid-box', paidToppings, 'hiddenPaidToppings');
   renderCoupons();
@@ -653,6 +713,7 @@ auth.onAuthStateChanged(user => {
       state.hiddenPaidToppings = Array.isArray(data.hiddenPaidToppings) ? data.hiddenPaidToppings : [];
       state.customProducts = data.customProducts || {};
       state.coupons = data.coupons || {};
+      state.pix = data.pix || { name: 'JoyFormiga Doceria', type: 'CNPJ', key: '45.476.940/0001-90' };
       renderAll();
       loadAnalytics();
       showAdminSection('acais');
