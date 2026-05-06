@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JoyFormiga ADM</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f6f3fb;color:#24123a}
+.wrap{max-width:1200px;margin:0 auto;padding:20px}
+.card{background:#fff;border-radius:22px;box-shadow:0 12px 28px rgba(0,0,0,.08);padding:18px;margin-bottom:16px;border:1px solid #efe7fb}
+h1{margin:0 0 6px;color:#6f2dbd} h2{margin:0 0 12px;color:#6f2dbd} h3{margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #eee}
+.item:last-child{border-bottom:none}
+button{border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
+.primary{background:#6f2dbd;color:#fff} .danger{background:#e63b60;color:#fff} .muted{background:#eee;color:#333} .green{background:#14a44d;color:#fff}
+input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:12px;margin-bottom:10px}
+textarea{min-height:80px;resize:vertical}
+.tag{display:inline-block;background:#efe4ff;color:#6f2dbd;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;margin-bottom:12px}
+.ok{color:#0b8f45;font-weight:700} .hidden{display:none} .row{display:grid;grid-template-columns:1fr 1fr;gap:10px} .tiny{font-size:12px;color:#666}
+.thumb{width:64px;height:64px;border-radius:12px;object-fit:cover;background:#f2eef8;border:1px solid #ece4fa}
+.stack{display:flex;flex-direction:column;gap:10px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f5f0ff;color:#6f2dbd;font-size:12px;font-weight:700}
+
+.nav-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px;margin-bottom:16px}
+.nav-btn{border:none;border-radius:16px;padding:16px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 18px rgba(0,0,0,.08)}
+.nav-btn.primary{background:#6f2dbd;color:#fff}
+.nav-btn.secondary{background:#f4c542;color:#4b3200}
+.nav-btn.pasteis{background:#ff8c42;color:#fff}
+.nav-btn.dogs{background:#e63946;color:#fff}
+.nav-btn.alaminutas{background:#1f4e79;color:#fff}
+.nav-btn.refrigerantes{background:#2f6b3f;color:#fff}
+.admin-section.hidden{display:none}
+.section-wrap{margin-top:16px}
+
+@media(max-width:760px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="login-card">
+    <h1>ADM JoyFormiga</h1>
+    <p>Entre com seu email e senha do Firebase para controlar o cardápio em tempo real.</p>
+    <input id="email" type="email" placeholder="Seu email admin">
+    <input id="senha" type="password" placeholder="Sua senha">
+    <button class="primary" onclick="login()">Entrar</button>
+    <div id="login-msg" style="margin-top:10px"></div>
+  </div>
+
+  <div id="panel" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <h1>Controle profissional do cardápio</h1>
+          <div class="tag">Tempo real</div>
+          <div id="user-info"></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="muted" onclick="resetAll()">Reativar itens fixos</button>
+          <button class="danger" onclick="logout()">Sair</button>
+        </div>
+      </div>
+      <small>O que você alterar aqui aparece no cardápio do cliente automaticamente.</small>
+    </div>
+
+    
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <h2>Insights do cardápio</h2>
+          <div class="tiny">Visitas, adições ao carrinho e cliques no WhatsApp.</div><div class="tiny" id="analytics-hint" style="margin-top:6px"></div>
+        </div>
+        <button class="muted" onclick="loadAnalytics()">Atualizar insights</button>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="card" style="margin:0">
+          <h3>Hoje</h3>
+          <div id="analytics-today" class="stack tiny">Carregando...</div>
+        </div>
+        <div class="card" style="margin:0">
+          <h3>Total</h3>
+          <div id="analytics-total" class="stack tiny">Carregando...</div>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="card" style="margin:0">
+          <h3>Produtos mais adicionados</h3>
+          <div id="analytics-products" class="stack tiny">Carregando...</div>
+        </div>
+        <div class="card" style="margin:0">
+          <h3>Seções mais vistas</h3>
+          <div id="analytics-sections" class="stack tiny">Carregando...</div>
+        </div>
+      </div>
+    <div class="card">
+      <h2>Configurações Pix</h2>
+      <div class="tiny">Altere o nome, tipo e chave Pix exibidos para o cliente.</div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label class="tiny" for="pix-holder">Nome para identificação</label>
+          <input id="pix-holder" type="text" placeholder="Ex.: Joy Formiga Doceria">
+        </div>
+        <div>
+          <label class="tiny" for="pix-type">Tipo da chave</label>
+          <select id="pix-type">
+            <option value="CNPJ">CNPJ</option>
+            <option value="CPF">CPF</option>
+            <option value="Telefone">Telefone</option>
+            <option value="E-mail">E-mail</option>
+            <option value="Aleatória">Aleatória</option>
+          </select>
+        </div>
+      </div>
+      <input id="pix-key-input" type="text" placeholder="Digite a chave Pix">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="primary" onclick="savePixSettings()">Salvar Pix</button>
+        <span id="pix-msg" class="tiny"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Seções do administrador</h2>
+      <div class="tiny">Use os mesmos grupos do cardápio para organizar melhor sua gestão.</div>
+      <div class="nav-buttons">
+        <button class="nav-btn primary" onclick="showAdminSection('acais')">Açaís</button>
+        <button class="nav-btn secondary" onclick="showAdminSection('copos')">Copos da Felicidade</button>
+        <button class="nav-btn pasteis" onclick="showAdminSection('pasteis')">Pastéis</button>
+        <button class="nav-btn dogs" onclick="showAdminSection('dogs')">Dog's</button>
+        <button class="nav-btn alaminutas" onclick="showAdminSection('alaminutas')">Alaminutas</button>
+        <button class="nav-btn refrigerantes" onclick="showAdminSection('refrigerantes')">Refrigerantes</button>
+        <button class="nav-btn" style="background:#eee;color:#333" onclick="showAdminSection('all')">Ver tudo</button>
+      </div>
+    </div>
+
+
+    <div class="grid">
+      <div class="card">
+        <h2>Cupons</h2>
+        <div class="row">
+          <input id="coupon-code" type="text" placeholder="Código do cupom. Ex.: JOY10">
+          <input id="coupon-percent" type="number" min="1" max="100" placeholder="Desconto em %">
+        </div>
+        <button class="green" onclick="saveCoupon()">Salvar cupom</button>
+        <div class="tiny">Você pode deixar vários cupons ativos ao mesmo tempo.</div>
+        <div id="coupon-list" style="margin-top:14px"></div>
+      </div>
+
+      <div class="card">
+        <h2>Novo produto</h2>
+        <input id="product-name" type="text" placeholder="Nome do produto">
+        <div class="row">
+          <input id="product-price" type="number" min="0" step="0.01" placeholder="Preço">
+          <select id="product-category">
+            <option value="copos">Copos da Felicidade</option>
+            <option value="acais">Açaís</option>
+            <option value="pasteis">Pastéis</option>
+            <option value="dogs">Dog's</option>
+            <option value="alaminutas">Alaminutas</option>
+            <option value="refrigerantes">Refrigerantes</option>
+          </select>
+        </div>
+        <textarea id="product-desc" placeholder="Descrição do produto"></textarea>
+        <div style="border:2px dashed #d7c4f4;border-radius:16px;padding:12px;margin-bottom:10px;background:#faf7ff">
+          <div style="font-weight:800;color:#6f2dbd;margin-bottom:6px">Imagem do produto</div>
+          <div class="tiny" style="margin-bottom:8px">Toque no botão abaixo para escolher ou trocar a foto do produto.</div>
+          <input id="product-image" type="file" accept="image/*" style="display:block;margin-bottom:8px">
+          <img id="product-preview" class="thumb hidden" alt="Prévia da imagem" style="width:96px;height:96px">
+        </div>
+        <button class="green" onclick="saveProduct()">Salvar produto</button>
+        <div id="product-msg" class="tiny"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      
+<div class="card section-wrap admin-section" id="section-acais">
+  <h2>Açaís</h2>
+  <div class="tiny">Ative ou desative os açaís por aqui.</div>
+  <div id="products-box-acais"></div>
+</div>
+<div class="card section-wrap admin-section" id="section-copos">
+  <h2>Copos da Felicidade</h2>
+  <div class="tiny">Ative ou desative os copos da felicidade por aqui.</div>
+  <div id="products-box-copos"></div>
+</div>
+<div class="card section-wrap admin-section" id="section-pasteis">
+  <h2>Pastéis</h2>
+  <div class="tiny">Ative ou desative pastéis salgados e doces por aqui.</div>
+  <div id="products-box-pasteis"></div>
+</div>
+<div class="card section-wrap admin-section" id="section-dogs">
+  <h2>Dog's</h2>
+  <div class="tiny">Ative ou desative os dogs por aqui.</div>
+  <div id="products-box-dogs"></div>
+</div>
+<div class="card section-wrap admin-section" id="section-alaminutas">
+  <h2>Alaminutas</h2>
+  <div class="tiny">Ative ou desative as alaminutas por aqui.</div>
+  <div id="products-box-alaminutas"></div>
+</div>
+<div class="card section-wrap admin-section" id="section-refrigerantes">
+  <h2>Refrigerantes</h2>
+  <div class="tiny">Ative ou desative os refrigerantes por aqui.</div>
+  <div id="products-box-refrigerantes"></div>
+</div>
+
+      <div class="card">
+        <h2>Complementos grátis</h2>
+        <div id="free-box"></div>
+      </div>
+      <div class="card">
+        <h2>Complementos pagos</h2>
+        <div id="paid-box"></div>
+      </div>
+    </div>
+
+    
+<div class="card section-wrap admin-section" id="section-custom">
+  <h2>Produtos cadastrados no ADM</h2>
+  <div class="tiny">Itens novos adicionados pelo painel, separados por categoria.</div>
+  <div class="grid">
+    <div class="card" style="margin:0">
+      <h3>Açaís</h3>
+      <div id="custom-products-acais"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Copos da Felicidade</h3>
+      <div id="custom-products-copos"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Pastéis</h3>
+      <div id="custom-products-pasteis"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Dog's</h3>
+      <div id="custom-products-dogs"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Alaminutas</h3>
+      <div id="custom-products-alaminutas"></div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Refrigerantes</h3>
+      <div id="custom-products-refrigerantes"></div>
+    </div>
+  </div>
+</div>
+
+  </div>
+</div>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBp_RXOgILWHKAZ0JjJwYzrgKdkwom7pFA",
+  authDomain: "joyformiga.firebaseapp.com",
+  databaseURL: "https://joyformiga-default-rtdb.firebaseio.com",
+  projectId: "joyformiga",
+  storageBucket: "joyformiga.firebasestorage.app",
+  messagingSenderId: "151196365522",
+  appId: "1:151196365522:web:bb2b611f731986b829730b"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+const storage = firebase.storage();
+const menuRef = db.ref('joyformigaMenu');
+const analyticsRef = db.ref('joyformigaAnalytics');
+const storageRoot = storage.ref('joyformiga-produtos');
+
+const allProducts = [
+  ...["Açaí 300ml", "Açaí 400ml", "Açaí 500ml", "Açaí 700ml", "Açaí 1 Litro"],
+  ...["Browninho com banana", "Brownitella com morango", "Banana com Nutella", "Morango com chantilly", "Brownie com morango", "Ninhotella com morango", "Brownie com morango chocolatudo", "Super brownie", "Super Brownie meio a meio", "Super brownie chocolatudo", "Morango com Nutella chocolatudo", "Morango com Nutella", "Ninho com morango", "Pistache com morango", "Ninhotache com morango", "Brigadeiro com morango", "Branquinho com morango", "Chantitella com morango", "Oreo", "Morango com Oreo", "Browninho com morango", "Brownie com morango branquinho", "Browquinho", "Brownie com morango"],
+  ...["2 Salsichas", "3 Salsichas", "Frango", "Calabresa", "Vegetariano"],
+  ...["Iscas de Carne", "Iscas de Frango"],
+  ...["Coca-Cola 2L", "Coca-Cola Zero 2L", "Fruki 2L", "Fruki 2L Zero"],
+  ...["Carne com ovo", "Carne cremoso", "Carne com cheddar", "Frango pastel", "Frango cremoso", "Frango com cheddar", "Calabresa requeicheddar", "Calabresa pastel", "Pizza"],
+  ...["Chocolate ao leite", "Chocolate branco", "Chocolate meio amargo", "Chocolate c/ confete", "Chocolate branco c/ confete", "Ninhotella", "Stikadinho", "Oreo doce", "Nutella", "Creme de avelã", "Amendoim", "Ninho doce"]
+];
+const freeToppings = ["Cobertura de Chocolate", "Cobertura de Morango", "Chocolate em Gotas", "Sucrilhos", "Chocoball", "Granola", "Banana", "Paçoca", "Chantilly", "Amendoim triturado", "Leite Condensado", "Leite em Pó", "Confete"];
+const paidToppings = ["Brigadeiro de Chocolate", "Brigadeiro Branco", "Creme Ninho", "Creme de Cookies", "Creme de Morango", "Creme Kinder Bueno", "Creme de Chocolate Branco", "Creme de Chocolate ao Leite", "Creme de Chocolate meio Amargo", "Oreo", "Brownie", "Morango", "Stikadinho", "Nutella", "Creme de Pistache", "Creme de avelã"];
+
+let state = {
+  hiddenItems: [],
+  hiddenFreeToppings: [],
+  hiddenPaidToppings: [],
+  customProducts: {},
+  coupons: {}
+};
+let editingCouponId = null;
+let editingProductId = null;
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function money(v) {
+  return `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`;
+}
+
+function renderToggleList(targetId, names, hiddenArrayName) {
+  const hidden = new Set(state[hiddenArrayName] || []);
+  document.getElementById(targetId).innerHTML = names.map(name => `
+    <div class="item">
+      <div><strong>${escapeHtml(name)}</strong><br><small>${hidden.has(name) ? 'Oculto no cardápio' : 'Visível no cardápio'}</small></div>
+      <label style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+        <input type="checkbox" ${hidden.has(name) ? '' : 'checked'} onchange="toggleItem('${hiddenArrayName}', '${escapeHtml(name)}', this.checked)">
+        Ativo
+      </label>
+    </div>`).join('');
+}
+
+function renderCoupons() {
+  const coupons = Object.entries(state.coupons || {}).map(([id, c]) => ({id, ...c}));
+  document.getElementById('coupon-list').innerHTML = coupons.length ? coupons.map(c => `
+    <div class="item">
+      <div>
+        <strong>${escapeHtml(c.code)}</strong> <span class="badge">${Number(c.discountPercent)}%</span><br>
+        <small>${c.active ? 'Ativo no cardápio' : 'Inativo'}</small>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="muted" onclick="editCoupon('${c.id}')">Editar</button>
+        <button class="muted" onclick="toggleCoupon('${c.id}', ${!c.active})">${c.active ? 'Desativar' : 'Ativar'}</button>
+        <button class="danger" onclick="deleteCoupon('${c.id}')">Excluir</button>
+      </div>
+    </div>`).join('') : '<div class="tiny">Nenhum cupom cadastrado.</div>';
+}
+
+function categoryLabel(cat) {
+  return ({acais:'Açaís', copos:'Copos da Felicidade', pasteis:'Pastéis', dogs:"Dog's", alaminutas:'Alaminutas', refrigerantes:'Refrigerantes'})[cat] || 'Copos da Felicidade';
+}
+
+function renderCustomProducts() {
+  const holder = document.getElementById('custom-products');
+  if (!holder) return;
+  const products = Object.entries(state.customProducts || {}).map(([id, p]) => ({id, ...p}));
+  holder.innerHTML = products.length ? products.map(p => `
+    <div class="item" style="align-items:flex-start">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${p.img ? `<img src="${p.img}" class="thumb" alt="">` : `<div class="thumb" style="display:grid;place-items:center;font-weight:900;color:#6f2dbd">JF</div>`}
+        <div>
+          <strong>${escapeHtml(p.name)}</strong> <span class="badge">${money(p.price)}</span><br>
+          <small>${escapeHtml(p.desc || '')}</small><br>
+          <small>Categoria: ${categoryLabel(p.category)} · ${p.active === false ? 'Inativo' : 'Ativo'}</small>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="muted" onclick="editProduct('${p.id}')">Editar</button>
+        <button class="muted" onclick="toggleCustomProduct('${p.id}', ${p.active === false})">${p.active === false ? 'Ativar' : 'Desativar'}</button>
+        <button class="danger" onclick="deleteProduct('${p.id}')">Excluir</button>
+      </div>
+    </div>`).join('') : '<div class="tiny">Nenhum produto cadastrado pelo ADM.</div>';
+}
+
+
+function renderAll() {
+  renderToggleList('free-box', freeToppings, 'hiddenFreeToppings');
+  renderToggleList('paid-box', paidToppings, 'hiddenPaidToppings');
+  renderCoupons();
+  renderProductsBySection();
+  renderCustomProductsBySection();
+}
+
+function toggleItem(arrayName, name, isActive) {
+  const arr = new Set(state[arrayName] || []);
+  if (isActive) arr.delete(name); else arr.add(name);
+  state[arrayName] = Array.from(arr).sort();
+  menuRef.update({ [arrayName]: state[arrayName] }).catch(err => alert('Erro ao salvar: ' + err.message));
+}
+
+function resetAll() {
+  if(!confirm('Reativar todos os itens fixos e complementos?')) return;
+  menuRef.update({ hiddenItems: [], hiddenFreeToppings: [], hiddenPaidToppings: [] });
+}
+
+function normalizeCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function clearCouponForm() {
+  document.getElementById('coupon-code').value = '';
+  document.getElementById('coupon-percent').value = '';
+  editingCouponId = null;
+}
+
+function saveCoupon() {
+  const code = normalizeCode(document.getElementById('coupon-code').value);
+  const discountPercent = Number(document.getElementById('coupon-percent').value);
+  if (!code) return alert('Digite o código do cupom.');
+  if (!discountPercent || discountPercent < 1 || discountPercent > 100) return alert('Digite um desconto válido entre 1 e 100.');
+  const existing = Object.entries(state.coupons || {}).find(([id, c]) => normalizeCode(c.code) === code && id !== editingCouponId);
+  if (existing) return alert('Já existe um cupom com esse código.');
+  const payload = { code, discountPercent, active: true };
+  const ref = editingCouponId ? menuRef.child('coupons').child(editingCouponId) : menuRef.child('coupons').push();
+  ref.set(payload).then(clearCouponForm).catch(err => alert('Erro ao salvar cupom: ' + err.message));
+}
+
+function editCoupon(id) {
+  const c = state.coupons?.[id];
+  if (!c) return;
+  editingCouponId = id;
+  document.getElementById('coupon-code').value = c.code || '';
+  document.getElementById('coupon-percent').value = c.discountPercent || '';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function toggleCoupon(id, nextState) {
+  menuRef.child('coupons').child(id).update({ active: nextState });
+}
+
+function deleteCoupon(id) {
+  if (!confirm('Excluir este cupom?')) return;
+  menuRef.child('coupons').child(id).remove();
+  if (editingCouponId === id) clearCouponForm();
+}
+
+
+const acaiProducts = ["Açaí 300ml", "Açaí 400ml", "Açaí 500ml", "Açaí 700ml", "Açaí 1 Litro"];
+const copoProducts = ["Browninho com banana", "Brownitella com morango", "Banana com Nutella", "Morango com chantilly", "Chocobrownie com morango", "Ninhotella com morango", "Brownie com morango chocolatudo", "Super brownie", "Super Brownie meio a meio", "Super brownie chocolatudo", "Morango com Nutella chocolatudo", "Morango com Nutella", "Ninho com morango", "Pistache com morango", "Ninhotache com morango", "Brigadeiro com morango", "Branquinho com morango", "Chantitella com morango", "Oreo", "Morango com Oreo", "Browninho com morango", "Brownie com morango branquinho", "Browquinho", "Brownie com morango"];
+const pastelProducts = ["Carne com ovo", "Carne cremoso", "Carne com cheddar", "Frango pastel", "Frango cremoso", "Frango com cheddar", "Calabresa requeicheddar", "Calabresa pastel", "Pizza", "Chocolate ao leite", "Chocolate branco", "Chocolate meio amargo", "Chocolate c/ confete", "Chocolate branco c/ confete", "Ninhotella", "Stikadinho", "Oreo doce", "Nutella", "Creme de avelã", "Amendoim", "Ninho doce"];
+const dogProducts = ["2 Salsichas", "3 Salsichas", "Frango", "Calabresa", "Vegetariano"];
+
+const alaminutaProducts = ["Iscas de Carne", "Iscas de Frango"];
+const refrigeranteProducts = ["Coca-Cola 2L", "Coca-Cola Zero 2L", "Fruki 2L", "Fruki 2L Zero"];
+
+
+function productSection(name) {
+  if (acaiProducts.includes(name)) return 'acais';
+  if (copoProducts.includes(name)) return 'copos';
+  if (pastelProducts.includes(name)) return 'pasteis';
+  if (dogProducts.includes(name)) return 'dogs';
+  if (alaminutaProducts.includes(name)) return 'alaminutas';
+  if (refrigeranteProducts.includes(name)) return 'refrigerantes';
+  return 'copos';
+}
+
+function loadPixSettings() {
+  const ref = menuRef.child('settings').child('pix');
+  ref.once('value').then(snap => {
+    const data = snap.val() || {};
+    const holder = document.getElementById('pix-holder');
+    const type = document.getElementById('pix-type');
+    const key = document.getElementById('pix-key-input');
+    if (holder) holder.value = data.name || '';
+    if (type) type.value = data.type || 'CNPJ';
+    if (key) key.value = data.key || '';
+  });
+}
+
+function savePixSettings() {
+  const name = document.getElementById('pix-holder')?.value.trim();
+  const type = document.getElementById('pix-type')?.value || 'CNPJ';
+  const key = document.getElementById('pix-key-input')?.value.trim();
+  const msg = document.getElementById('pix-msg');
+  if (!name) {
+    if (msg) msg.textContent = 'Digite o nome do Pix.';
+    return;
+  }
+  if (!key) {
+    if (msg) msg.textContent = 'Digite a chave Pix.';
+    return;
+  }
+  menuRef.child('settings').child('pix').set({ name, type, key })
+    .then(() => { if (msg) msg.innerHTML = '<span class="ok">Pix salvo com sucesso.</span>'; })
+    .catch(err => { if (msg) msg.textContent = 'Erro ao salvar Pix: ' + err.message; });
+}
+
+function showAdminSection(section) {
+  const sections = ['acais','copos','pasteis','dogs','alaminutas','refrigerantes','custom'];
+  sections.forEach(id => {
+    const el = document.getElementById('section-' + id);
+    if (!el) return;
+    if (section === 'all') el.classList.remove('hidden');
+    else if (id === 'custom') el.classList.remove('hidden');
+    else el.classList.toggle('hidden', id !== section);
+  });
+}
+
+function fixedProductKey(name, section) {
+  return `${section || productSection(name)}::${name}`;
+}
+
+function isFixedItemHidden(name, section) {
+  const hidden = Array.isArray(state.hiddenItems) ? state.hiddenItems : [];
+  return hidden.includes(name) || hidden.includes(fixedProductKey(name, section));
+}
+
+function jsArg(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function renderProductsBySection() {
+  const boxes = {
+    acais: document.getElementById('products-box-acais'),
+    copos: document.getElementById('products-box-copos'),
+    pasteis: document.getElementById('products-box-pasteis'),
+    dogs: document.getElementById('products-box-dogs'),
+    alaminutas: document.getElementById('products-box-alaminutas'),
+    refrigerantes: document.getElementById('products-box-refrigerantes'),
+  };
+  Object.values(boxes).forEach(el => { if (el) el.innerHTML = ''; });
+  allProducts.forEach(name => {
+    const section = productSection(name);
+    const hidden = isFixedItemHidden(name, section);
+    const box = boxes[section];
+    if (!box) return;
+    box.innerHTML += `
+      <div class="item">
+        <div><strong>${name}</strong><br><span class="tiny">${hidden ? 'Desativado' : 'Ativado'}</span></div>
+        <button class="${hidden ? 'green' : 'muted'}" onclick="toggleFixedItem('${jsArg(name)}', '${jsArg(section)}', ${hidden})">
+          ${hidden ? 'Ativar' : 'Desativar'}
+        </button>
+      </div>`;
+  });
+}
+
+function renderCustomProductsBySection() {
+  const groups = { acais: [], copos: [], pasteis: [], dogs: [], alaminutas: [], refrigerantes: [] };
+  Object.entries(state.customProducts || {}).forEach(([id, p]) => {
+    const cat = p.category || productSection(p.name);
+    const group = groups[cat] || groups.copos;
+    group.push([id, p]);
+  });
+  ['acais','copos','pasteis','dogs','alaminutas','refrigerantes'].forEach(cat => {
+    const el = document.getElementById('custom-products-' + cat);
+    if (!el) return;
+    const items = groups[cat];
+    if (!items.length) {
+      el.innerHTML = '<div class="tiny">Nenhum item nesta seção.</div>';
+      return;
+    }
+    el.innerHTML = items.map(([id, p]) => `
+      <div class="item">
+        <div style="display:flex;gap:10px;align-items:center">
+          ${p.img ? `<img src="${p.img}" class="thumb" alt="">` : ''}
+          <div>
+            <strong>${p.name || 'Sem nome'}</strong>
+            <div class="tiny">${p.desc || 'Sem descrição'}</div>
+            <div class="badge">R$ ${Number(p.price || 0).toFixed(2).replace('.', ',')}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="muted" onclick="editProduct('${id}')">Editar</button>
+          <button class="${p.active === false ? 'green' : 'muted'}" onclick="toggleCustomProduct('${id}', ${p.active === false})">${p.active === false ? 'Ativar' : 'Desativar'}</button>
+          <button class="danger" onclick="deleteProduct('${id}')">Excluir</button>
+        </div>
+      </div>
+    `).join('');
+  });
+}
+
+
+
+function toggleFixedItem(name, section, shouldActivate) {
+  const key = fixedProductKey(name, section);
+  let next = Array.isArray(state.hiddenItems) ? [...state.hiddenItems] : [];
+  if (shouldActivate) {
+    next = next.filter(item => item !== name && item !== key);
+  } else {
+    next = next.filter(item => item !== name);
+    if (!next.includes(key)) next.push(key);
+  }
+  menuRef.update({ hiddenItems: next });
+}
+
+function clearProductForm() {
+  document.getElementById('product-name').value = '';
+  document.getElementById('product-price').value = '';
+  document.getElementById('product-category').value = 'copos';
+  document.getElementById('product-desc').value = '';
+  document.getElementById('product-image').value = '';
+  document.getElementById('product-msg').textContent = '';
+  document.getElementById('product-preview').src = '';
+  document.getElementById('product-preview').classList.add('hidden');
+  editingProductId = null;
+}
+
+async function uploadImage(file) {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const ref = storageRoot.child(safeName);
+  await ref.put(file);
+  return await ref.getDownloadURL();
+}
+
+async function saveProduct() {
+  const name = document.getElementById('product-name').value.trim();
+  const price = Number(document.getElementById('product-price').value);
+  const category = document.getElementById('product-category').value;
+  const desc = document.getElementById('product-desc').value.trim();
+  const file = document.getElementById('product-image').files[0];
+  const msg = document.getElementById('product-msg');
+
+  if (!name) return alert('Digite o nome do produto.');
+  if (!price && price !== 0) return alert('Digite o preço.');
+  msg.textContent = 'Salvando produto...';
+
+  try {
+    let img = state.customProducts?.[editingProductId]?.img || '';
+    if (file) img = await uploadImage(file);
+    const payload = { name, price, category, desc, img, active: true };
+    const ref = editingProductId ? menuRef.child('customProducts').child(editingProductId) : menuRef.child('customProducts').push();
+    if (editingProductId && state.customProducts?.[editingProductId]?.active === false) payload.active = false;
+    await ref.set(payload);
+    msg.textContent = 'Produto salvo com sucesso.';
+    clearProductForm();
+  } catch (err) {
+    msg.textContent = 'Erro ao salvar: ' + err.message;
+  }
+}
+
+function editProduct(id) {
+  const p = state.customProducts?.[id];
+  if (!p) return;
+  editingProductId = id;
+  document.getElementById('product-name').value = p.name || '';
+  document.getElementById('product-price').value = p.price || '';
+  document.getElementById('product-category').value = p.category || 'copos';
+  document.getElementById('product-desc').value = p.desc || '';
+  document.getElementById('product-msg').textContent = 'Você está editando este produto. Se não escolher nova imagem, a atual será mantida.';
+  const preview = document.getElementById('product-preview');
+  if (p.img) { preview.src = p.img; preview.classList.remove('hidden'); } else { preview.src = ''; preview.classList.add('hidden'); }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function toggleCustomProduct(id, nextStateActive) {
+  menuRef.child('customProducts').child(id).update({ active: nextStateActive });
+}
+
+function deleteProduct(id) {
+  if (!confirm('Excluir este produto?')) return;
+  menuRef.child('customProducts').child(id).remove();
+  if (editingProductId === id) clearProductForm();
+}
+
+
+function todayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function safeCount(obj) {
+  if (!obj) return 0;
+  if (Array.isArray(obj)) return obj.length;
+  return Object.keys(obj).length;
+}
+function renderMetricList(elId, items) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = items.map(item => `<div class="item"><span>${item.label}</span><strong>${item.value}</strong></div>`).join('');
+}
+function renderRankList(elId, obj, emptyText='Sem dados ainda.') {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const entries = Object.entries(obj || {}).sort((a,b) => Number(b[1]) - Number(a[1])).slice(0,10);
+  if (!entries.length) {
+    el.innerHTML = `<div class="tiny">${emptyText}</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(([name, count], idx) => `<div class="item"><span>${idx+1}. ${name}</span><strong>${count}</strong></div>`).join('');
+}
+async function loadAnalytics() {
+  const today = todayKey();
+  const snap = await analyticsRef.get();
+  const data = snap.val() || {};
+  const daily = (data.daily && data.daily[today]) || {};
+  const totals = data.totals || {};
+  const sessions = data.sessions || {};
+  renderMetricList('analytics-today', [
+    { label: 'Aberturas do link', value: daily.page_view || 0 },
+    { label: 'Pessoas únicas', value: safeCount((sessions.page_view || {})) },
+    { label: 'Adições ao carrinho', value: daily.add_to_cart || 0 },
+    { label: 'Aberturas do carrinho', value: daily.open_cart || 0 },
+    { label: 'Cliques no WhatsApp', value: daily.checkout_click || 0 },
+  ]);
+  renderMetricList('analytics-total', [
+    { label: 'Aberturas do link', value: totals.page_view || 0 },
+    { label: 'Pessoas únicas', value: safeCount((sessions.page_view || {})) },
+    { label: 'Adições ao carrinho', value: totals.add_to_cart || 0 },
+    { label: 'Aberturas do carrinho', value: totals.open_cart || 0 },
+    { label: 'Cliques no WhatsApp', value: totals.checkout_click || 0 },
+  ]);
+  renderRankList('analytics-products', totals.products || {});
+  renderRankList('analytics-sections', totals.sections || {});
+  const hasAnyData = Object.keys(daily).length || Object.keys(totals).length;
+  const hint = document.getElementById('analytics-hint');
+  if (hint) hint.textContent = hasAnyData ? 'Dados carregados do Firebase.' : 'Sem dados ainda no Firebase.';
+}
+
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+  const msg = document.getElementById('login-msg');
+  msg.innerHTML = 'Entrando...';
+  try {
+    await auth.signInWithEmailAndPassword(email, senha);
+    msg.innerHTML = '<span class="ok">Login realizado com sucesso.</span>';
+  } catch (err) {
+    msg.innerHTML = '<span style="color:#c62828">' + (err?.message || 'Não foi possível entrar.') + '</span>';
+  }
+}
+function logout() { auth.signOut(); }
+
+document.getElementById('product-image').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  const preview = document.getElementById('product-preview');
+  if (!file) { preview.src = ''; preview.classList.add('hidden'); return; }
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
+});
+
+document.getElementById('email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+document.getElementById('senha').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-card').classList.add('hidden');
+    document.getElementById('panel').classList.remove('hidden');
+    document.getElementById('user-info').innerHTML = '<span class="ok">Logado como: ' + user.email + '</span>';
+    menuRef.on('value', snap => {
+      const data = snap.val() || {};
+      state.hiddenItems = Array.isArray(data.hiddenItems) ? data.hiddenItems : [];
+      state.hiddenFreeToppings = Array.isArray(data.hiddenFreeToppings) ? data.hiddenFreeToppings : [];
+      state.hiddenPaidToppings = Array.isArray(data.hiddenPaidToppings) ? data.hiddenPaidToppings : [];
+      state.customProducts = data.customProducts || {};
+      state.coupons = data.coupons || {};
+      renderAll();
+      loadPixSettings();
+      loadAnalytics();
+      showAdminSection('acais');
+    });
+  } else {
+    document.getElementById('login-card').classList.remove('hidden');
+    document.getElementById('panel').classList.add('hidden');
+    document.getElementById('user-info').textContent = '';
+  }
+});
+</script>
+</body>
+</html>
